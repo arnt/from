@@ -1,0 +1,44 @@
+#!/usr/bin/node
+var Imap = require('../node-imap')
+
+var imap = new Imap({
+  user: 'root@gmail.com',
+  password: 'secret',
+  host: 'imap.gmail.com',
+  //debug: console.log,
+  port: 993,
+  tls: true
+})
+
+var uid = 1
+
+function update() {
+  var f = imap.fetch(uid + ':*', {
+    envelope: true
+  })
+  f.on('message', function(msg, seqno) {
+    msg.once('attributes', function(attrs) {
+      console.log('UID ' + attrs.uid + '\n  ' + attrs.envelope.from[0].mailbox + '@'  + attrs.envelope.from[0].host + '\n  ' + attrs.envelope.subject )
+      uid = Math.max(uid, 1 + attrs.uid)
+    })
+  })
+}
+
+imap.once('ready', function() {
+  imap.openBox('INBOX', true, function(err, box) {
+    uid = box.uidnext
+    update()
+  });
+})
+
+imap.once('error', function(err) {
+  console.log(err)
+  imap.end()
+})
+
+imap.on('mail', function() {
+  update()
+})
+
+imap.connect()
+
